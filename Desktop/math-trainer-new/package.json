@@ -1,0 +1,11 @@
+{
+    "name": "math-trainer",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+      "start": "node api/chat.js"
+    },
+    "dependencies": {
+      "openai": "^4.0.0"
+    }
+  }
