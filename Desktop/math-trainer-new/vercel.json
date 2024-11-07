@@ -1,23 +1,30 @@
 {
     "version": 2,
+    "buildCommand": "",
+    "devCommand": "",
+    "installCommand": "",
     "builds": [
       {
-        "src": "api/chat.js",
+        "src": "api/**/*.js",
         "use": "@vercel/node"
       },
       {
-        "src": "public/**",
+        "src": "public/**/*",
         "use": "@vercel/static"
       }
     ],
     "routes": [
       {
-        "src": "/api/chat",
-        "dest": "/api/chat.js"
+        "src": "/api/(.*)",
+        "dest": "/api/$1"
       },
       {
         "src": "/(.*)",
         "dest": "/public/$1"
+      },
+      {
+        "src": "/",
+        "dest": "/public/index.html"
       }
     ]
   }
