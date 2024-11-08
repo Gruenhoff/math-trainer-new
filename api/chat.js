@@ -4,12 +4,17 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-module.exports = async (req, res) => {
-  // Handle CORS preflight
+const handler = async (req, res) => {
+  // Log request method and URL
+  console.log(`Request received: ${req.method} ${req.url}`);
+
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     return res.status(200).end();
   }
 
@@ -19,17 +24,17 @@ module.exports = async (req, res) => {
   }
 
   try {
-    console.log('Request received:', req.body);
-
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
-    }
+    // Log request body
+    console.log('Request body:', req.body);
 
     const { message, history } = req.body;
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
+
+    // Log OpenAI API key presence
+    console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -56,15 +61,25 @@ module.exports = async (req, res) => {
       ]
     });
 
-    res.status(200).json({
-      response: completion.choices[0].message.content,
-      status: 'success'
+    // Log successful response
+    console.log('OpenAI API response received');
+
+    return res.status(200).json({
+      response: completion.choices[0].message.content
     });
   } catch (error) {
-    console.error('API Error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
+    // Enhanced error logging
+    console.error('Detailed error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+
+    return res.status(500).json({
+      error: 'Internal server error',
       message: error.message
     });
   }
 };
+
+module.exports = handler;
