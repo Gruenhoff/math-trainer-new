@@ -4,39 +4,32 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-const handler = async (req, res) => {
-  // Wichtig: CORS-Header setzen
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-  // OPTIONS request handling
+module.exports = async (req, res) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
   }
 
-  // Nur POST-Anfragen erlauben
+  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // API Key überprüfen
+    console.log('Request received:', req.body);
+
     if (!process.env.OPENAI_API_KEY) {
-      console.error('OpenAI API key not found');
-      return res.status(500).json({ error: 'OpenAI API key not configured' });
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     const { message, history } = req.body;
-
-    // Request-Daten validieren
+    
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
-
-    console.log('Sending request to OpenAI with message:', message);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -63,23 +56,15 @@ const handler = async (req, res) => {
       ]
     });
 
-    console.log('Received response from OpenAI');
-
-    // Erfolgreiche Antwort
-    return res.status(200).json({ 
+    res.status(200).json({
       response: completion.choices[0].message.content,
       status: 'success'
     });
-
   } catch (error) {
-    console.error('Error in API route:', error);
-    return res.status(500).json({ 
-      error: 'Server error',
-      message: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    console.error('API Error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: error.message
     });
   }
 };
-
-// Export als Edge-Function
-module.exports = handler;
