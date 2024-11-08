@@ -1,162 +1,84 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mathe-Trainer</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f0f2f5;
-        }
-        .chat-container {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-        }
-        #chat-messages {
-            height: 400px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
-        .message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-            white-space: pre-wrap;
-        }
-        .user-message {
-            background: #e3f2fd;
-            margin-left: 20%;
-        }
-        .bot-message {
-            background: #f5f5f5;
-            margin-right: 20%;
-        }
-        .input-container {
-            display: flex;
-            gap: 10px;
-        }
-        input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        button:disabled {
-            background: #cccccc;
-        }
-        .initial-message {
-            text-align: center;
-            color: #666;
-            margin: 20px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="chat-container">
-        <div id="chat-messages">
-            <div class="initial-message">
-                Schreibe "Neue Aufgaben" um zu beginnen
-            </div>
-        </div>
-        <div class="input-container">
-            <input 
-                type="text" 
-                id="user-input" 
-                placeholder="Deine Nachricht..."
-                onkeypress="if(event.key === 'Enter') sendMessage()"
+import React, { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+
+const ChatInterface = () => {
+  const [messages, setMessages] = useState([
+    { role: 'system', content: 'Schreibe "Neue Aufgaben" um zu beginnen' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    setIsLoading(true);
+    const newMessage = { role: 'user', content: input };
+    setMessages(prev => [...prev, newMessage]);
+    
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          history: messages.slice(1) // Exclude the initial system message
+        }),
+      });
+
+      if (!response.ok) throw new Error('API request failed');
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, { 
+        role: 'system', 
+        content: 'Es tut mir leid, es gab einen Fehler. Bitte versuche es erneut.' 
+      }]);
+    } finally {
+      setIsLoading(false);
+      setInput('');
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto mt-8">
+      <CardContent className="p-6">
+        <div className="space-y-4 mb-4 h-96 overflow-y-auto">
+          {messages.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`p-3 rounded-lg ${
+                msg.role === 'user'
+                  ? 'bg-blue-100 ml-auto max-w-[80%]'
+                  : 'bg-gray-100 max-w-[80%]'
+              }`}
             >
-            <button onclick="sendMessage()" id="send-button">Senden</button>
+              {msg.content}
+            </div>
+          ))}
         </div>
-    </div>
+        
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Schreibe deine Nachricht..."
+            disabled={isLoading}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Sendet...' : 'Senden'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+};
 
-    <script>
-        let messageHistory = [];
-
-        // Funktion zum Senden der Nachricht an die API
-        async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const button = document.getElementById('send-button');
-            const message = input.value.trim();
-
-            if (!message) return;
-
-            // Deaktiviere das Eingabefeld und den Button während der Anfrage
-            input.disabled = true;
-            button.disabled = true;
-
-            // Zeige die Benutzernachricht im Chat-Fenster
-            appendMessage(message, 'user');
-            input.value = '';
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message,
-                        history: messageHistory
-                    })
-                });
-
-                if (!response.ok) throw new Error('Netzwerkfehler');
-
-                const data = await response.json();
-                appendMessage(data.response, 'bot');
-
-                // Aktualisiere die Chat-Historie mit den neuen Nachrichten
-                messageHistory.push(
-                    { role: "user", content: message },
-                    { role: "assistant", content: data.response }
-                );
-
-                // Begrenze die Länge der Historie auf 20 Nachrichten
-                if (messageHistory.length > 20) {
-                    messageHistory = messageHistory.slice(-20);
-                }
-
-            } catch (error) {
-                console.error('Error:', error);
-                appendMessage('Es gab einen Fehler. Bitte versuche es erneut.', 'bot');
-            } finally {
-                // Aktiviere das Eingabefeld und den Button wieder
-                input.disabled = false;
-                button.disabled = false;
-                input.focus();
-            }
-        }
-
-        // Funktion zum Hinzufügen einer Nachricht im Chat-Fenster
-        function appendMessage(content, sender) {
-            const messages = document.getElementById('chat-messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}-message`;
-            messageDiv.textContent = content;
-            messages.appendChild(messageDiv);
-            messages.scrollTop = messages.scrollHeight;
-        }
-    </script>
-</body>
-</html>
+export default ChatInterface;

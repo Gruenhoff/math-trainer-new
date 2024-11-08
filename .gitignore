@@ -1,0 +1,20 @@
+# Ignore everything in parent directories
+../../*
+../*
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Only track these files
+!api/
+!api/chat.js
+!index.html
+!vercel.json
+!.gitignore
