@@ -9,13 +9,27 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Add CORS headers for cross-origin requests if needed
+  // Add CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   try {
+    // Validiere API Key
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
     const { message, history } = req.body;
+
+    // Validiere Eingabedaten
+    if (!message) {
+      throw new Error('Message is required');
+    }
+
+    console.log('Sending request to OpenAI...'); // Debug log
+    console.log('Message:', message); // Debug log
+    console.log('History length:', history?.length); // Debug log
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -37,14 +51,22 @@ module.exports = async (req, res) => {
           Bei "Hilfe":
           - Gib einen hilfreichen Tipp zur fehlerhaft gelösten Aufgabe`
         },
-        ...history,
+        ...(history || []),
         { role: "user", content: message }
       ]
     });
 
+    console.log('Received response from OpenAI'); // Debug log
+
     res.status(200).json({ response: completion.choices[0].message.content });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Detailed error:', error); // Ausführliche Fehlerprotokollierung
+    
+    // Sende spezifischere Fehlermeldung an den Client
+    res.status(500).json({ 
+      error: 'Server error', 
+      details: error.message,
+      type: error.constructor.name
+    });
   }
 };
