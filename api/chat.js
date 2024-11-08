@@ -4,32 +4,39 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
+  // Wichtig: CORS-Header setzen
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  // OPTIONS request handling
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // Nur POST-Anfragen erlauben
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Add CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   try {
-    // Validiere API Key
+    // API Key überprüfen
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+      console.error('OpenAI API key not found');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 
     const { message, history } = req.body;
 
-    // Validiere Eingabedaten
+    // Request-Daten validieren
     if (!message) {
-      throw new Error('Message is required');
+      return res.status(400).json({ error: 'Message is required' });
     }
 
-    console.log('Sending request to OpenAI...'); // Debug log
-    console.log('Message:', message); // Debug log
-    console.log('History length:', history?.length); // Debug log
+    console.log('Sending request to OpenAI with message:', message);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -56,17 +63,23 @@ module.exports = async (req, res) => {
       ]
     });
 
-    console.log('Received response from OpenAI'); // Debug log
+    console.log('Received response from OpenAI');
 
-    res.status(200).json({ response: completion.choices[0].message.content });
+    // Erfolgreiche Antwort
+    return res.status(200).json({ 
+      response: completion.choices[0].message.content,
+      status: 'success'
+    });
+
   } catch (error) {
-    console.error('Detailed error:', error); // Ausführliche Fehlerprotokollierung
-    
-    // Sende spezifischere Fehlermeldung an den Client
-    res.status(500).json({ 
-      error: 'Server error', 
-      details: error.message,
-      type: error.constructor.name
+    console.error('Error in API route:', error);
+    return res.status(500).json({ 
+      error: 'Server error',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
+
+// Export als Edge-Function
+module.exports = handler;
